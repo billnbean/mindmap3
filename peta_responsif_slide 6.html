@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Peta Regulasi Diri</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Responsif penuh: halaman selalu 100% lebar dan tinggi bingkai (iframe), tanpa scroll.
+   Layar lebar: peta pohon di kiri, teks di kanan. Layar kecil atau potret: peta memenuhi bingkai,
+   ketuk node untuk membuka teks di layar penuh bingkai, lalu tombol Peta untuk kembali. */
+:root{
+  --bg:#eef2f4; --surface:#ffffff; --fg:#14262e; --muted:#566a73; --line:#b6c4ca;
+  --c1:#0f766e; --c1s:#d6efec;
+  --c2:#b45309; --c2s:#fbe9d0;
+  --c3:#7c3a9e; --c3s:#eddff6;
+  --root:#14262e; --rootfg:#ffffff;
+  --font-d:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --font-b:"Source Sans 3","Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1a20; --surface:#16262e; --fg:#e6eef1; --muted:#9bb0b8; --line:#3a505a;
+  --c1:#4fd1c5; --c1s:#12403c; --c2:#f6ad55; --c2s:#4a3014; --c3:#d6a8f0; --c3s:#3c2450;
+  --root:#e6eef1; --rootfg:#0e1a20; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1a20; --surface:#16262e; --fg:#e6eef1; --muted:#9bb0b8; --line:#3a505a;
+  --c1:#4fd1c5; --c1s:#12403c; --c2:#f6ad55; --c2s:#4a3014; --c3:#d6a8f0; --c3s:#3c2450;
+  --root:#e6eef1; --rootfg:#0e1a20; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;padding:0;overflow:hidden}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-b);font-size:14px;line-height:1.4}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+.app{width:100%;height:100%;display:flex;flex-direction:column;gap:1.2%;padding:1.2% 1.5%;padding-left:max(1.5%,8px);padding-right:max(1.5%,8px)}
+header{flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-family:var(--font-d);font-size:clamp(.8rem,3.4vw,1.1rem);line-height:1.15;margin:0}
+.sub{color:var(--muted);margin:1px 0 0;font-size:.74rem}
+.prog{flex:none;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:6px}
+.bar{width:clamp(36px,9vw,70px);height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--c1);transition:width .3s}
+.stage{flex:1;min-height:0;position:relative;display:flex;gap:1.5%}
+.mapbox{position:relative;min-width:0;overflow:hidden;background:var(--surface);border-radius:10px;border:1px solid var(--line);flex:1 1 100%}
+.stage.split .mapbox{flex:0 0 60%}
+#map{position:absolute;left:0;top:0;transform-origin:0 0}
+#map svg{position:absolute;inset:0;pointer-events:none}
+#map path{fill:none;stroke:var(--line);stroke-width:1.5;transition:stroke .2s}
+#map path.on{stroke-width:2.5}
+.node{position:absolute;font-family:var(--font-d);font-weight:500;font-size:.7rem;line-height:1.15;text-align:left;display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:7px;border:1.5px solid var(--col);background:var(--soft);color:var(--fg);cursor:pointer;transition:background .15s,color .15s;overflow:hidden}
+.node:focus-visible,.chip:focus-visible,.back:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+.dot{flex:none;width:.6em;height:.6em;min-width:7px;min-height:7px;border-radius:50%;border:1.5px solid var(--col);background:transparent}
+.seen .dot{background:var(--col)}
+.active{background:var(--col)!important;color:var(--surface)!important}
+.active .dot{background:var(--surface);border-color:var(--surface)}
+.node small{display:block;font-family:var(--font-b);font-weight:400;font-size:.6rem;opacity:.85}
+.node.root{cursor:default;background:var(--root);color:var(--rootfg);border-color:var(--root);font-weight:700;line-height:1.2;padding:6px 8px;justify-content:center;text-align:center}
+.node.group{cursor:default;background:var(--col);color:var(--surface);border-color:var(--col);font-weight:700;font-size:.6rem;letter-spacing:.02em;padding:4px;justify-content:center;text-align:center}
+/* tampilan chip untuk bingkai sangat kecil */
+#chips{position:absolute;inset:0;padding:2.5%;display:flex;flex-direction:column;gap:.55em;overflow:hidden;font-family:var(--font-d)}
+.cg{display:flex;flex-direction:column;gap:.25em}
+.cl{font-size:.62em;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--col)}
+.cw{display:flex;flex-wrap:wrap;gap:.3em}
+.chip{display:flex;align-items:center;gap:.35em;font-size:.95em;line-height:1.1;padding:.3em .6em;border-radius:.6em;border:1.5px solid var(--col);background:var(--soft);cursor:pointer}
+.chip.par{font-weight:700}
+/* panel teks */
+.panel{min-width:0;flex:1;background:var(--surface);border:1px solid var(--line);border-radius:10px;border-left:6px solid var(--col,var(--line));overflow:hidden;position:relative}
+.stage.swap .panel{position:absolute;inset:0;display:none;z-index:3}
+.stage.swap .panel.open{display:block}
+.pc{height:100%;overflow:hidden;padding:3.5% 4.5%;font-size:13px}
+.back{display:none;font-family:var(--font-d);font-weight:700;font-size:.78em;border:1.5px solid var(--col,var(--line));background:var(--soft,var(--bg));border-radius:999px;padding:.25em .8em;margin-bottom:.5em;cursor:pointer}
+.stage.swap .back{display:inline-block}
+.tag{font-size:.68em;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--col,var(--muted))}
+.panel h2{font-family:var(--font-d);font-size:1.25em;margin:.1em 0 .3em;line-height:1.2}
+.panel p{margin:0;font-size:1em}
+.ex{margin-top:.6em;padding:.4em .7em;border-radius:6px;background:var(--soft,var(--bg));font-size:.95em}
+.ex b{display:block;font-size:.68em;letter-spacing:.07em;text-transform:uppercase;color:var(--col)}
+.hint{color:var(--muted)}
+@media (max-height:340px){.sub{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head><body>
+<div class="app" id="app">
+  <header>
+    <div>
+      <h1>Peta Regulasi Diri Pendidik PNF</h1>
+      <p class="sub">Ketuk setiap konsep untuk membaca penjelasan dan contohnya.</p>
+    </div>
+    <div class="prog"><span id="pt">0 dari 11 dibuka</span><span class="bar"><i id="pb"></i></span></div>
+  </header>
+  <div class="stage split" id="stage">
+    <div class="mapbox" id="mapbox">
+      <div id="map" role="group" aria-label="Peta konsep regulasi diri"></div>
+      <div id="chips" hidden></div>
+    </div>
+    <section class="panel" id="panel" aria-live="polite"><div class="pc" id="pc"></div></section>
+  </div>
+</div>
+
+<script>
+var G={
+ p:{n:"Pondasi",c:"c1"}, i:{n:"Implementasi",c:"c2"}, h:{n:"Hubungan untuk Belajar",c:"c3"}
+};
+var TREE={label:"Regulasi Diri Pendidik PNF",root:true,kids:[
+ {group:"p",label:"Pondasi",kids:[
+  {id:"rd",label:"Regulasi Diri",sub:"Baumeister",
+   t:"Regulasi diri adalah kemampuan mengatur pikiran, perasaan, dan tindakan agar sesuai tujuan. Ada empat komponen yang saling menopang: Standar, Motivasi, Pemantauan, dan Energi Mental.",
+   kids:[
+    {id:"st",label:"Standar",t:"Tujuan atau patokan yang ingin dicapai. Tanpa standar yang jelas, kita tidak tahu kapan harus mengoreksi diri.",
+     ex:"\"Saya menyapa murid yang terlambat dengan hangat, bukan menegur di depan kelas.\""},
+    {id:"mo",label:"Motivasi",t:"Dorongan untuk tetap berusaha memenuhi standar, terutama saat lelah atau kecewa.",
+     ex:"Mengingat kembali alasan Anda menjadi pendidik PNF sebelum bereaksi."},
+    {id:"pm",label:"Pemantauan",t:"Kesadaran terhadap pikiran, emosi, dan tindakan diri sendiri ketika sedang berlangsung.",
+     ex:"Menyadari nada suara mulai meninggi, lalu berhenti sejenak dan menurunkannya."},
+    {id:"em",label:"Energi Mental",t:"Tenaga psikologis yang menopang tiga komponen lainnya. Energi ini bisa menipis setelah lama menahan diri dan mengambil banyak keputusan.",
+     ex:"Menjadwalkan jeda singkat di antara dua kelompok belajar.",
+     kids:[{id:"km",below:true,label:"Kelelahan Mental",t:"Kondisi ketika kapasitas psikologis terkuras, misalnya setelah berinteraksi intens dengan murid yang beragam usia dan latar belakang. Tanda: mudah tersinggung, sulit fokus, kehilangan semangat."}]}
+   ]}
+ ]},
+ {group:"i",label:"Implementasi",kids:[
+  {id:"srl",label:"Self-Regulated Learning",sub:"Zimmerman",
+   t:"Siklus belajar mandiri yang berulang melalui tiga tahap: Perencanaan, Pemantauan, dan Refleksi. Pendidik menjalaninya untuk dirinya sendiri, lalu membimbing murid melakukannya.",
+   kids:[
+    {id:"pr",label:"Perencanaan",t:"Menganalisis tugas dan menetapkan target yang realistis sebelum belajar atau mengajar dimulai.",
+     ex:"\"Hari ini cukup satu kompetensi, dengan 20 menit pertama untuk kegiatan ringan.\""},
+    {id:"pm2",label:"Pemantauan",t:"Mengawasi apakah strategi berjalan, secara langsung di lingkungan belajar yang dinamis.",
+     ex:"Melihat banyak yang mulai lelah, lalu mengganti diskusi panjang dengan kerja kelompok."},
+    {id:"rf",label:"Refleksi",t:"Mengevaluasi secara mendalam efektivitas metode yang dipakai, lalu memperbaikinya untuk pertemuan berikutnya.",
+     ex:"Menulis catatan singkat: apa yang berhasil, apa yang diubah."}
+   ]}
+ ]},
+ {group:"h",label:"Hubungan untuk Belajar",kids:[
+  {id:"rl",label:"Hubungan untuk Belajar",sub:"Relationship to Learn",
+   t:"Fondasi rasa aman bagi murid untuk berani belajar mandiri. Hubungan yang harmonis dibangun dari sikap menghargai, mendengar, dan memanfaatkan potensi lokal yang dekat dengan kehidupan mereka."}
+ ]}
+]};
+
+
+/* Dimensi alami pohon (hanya dasar perhitungan; tampilan akhir diskalakan otomatis ke ukuran bingkai) */
+var COLW=[100,84,160,106], GAPX=10, ROWH=42, NH=37, PAD=2, MINK=0.72;
+var map=document.getElementById("map"), chipsEl=document.getElementById("chips"), mapbox=document.getElementById("mapbox");
+var stage=document.getElementById("stage"), panel=document.getElementById("panel"), pc=document.getElementById("pc");
+var seen={}, total=0, nodes=[], links=[], activeNode=null, mode="split", view="tree";
+
+function layout(n,depth,grp,state){
+  n.depth=depth; n.grp=grp||n.group;
+  var all=n.kids||[], normal=all.filter(function(k){return !k.below}), below=all.filter(function(k){return k.below});
+  if(!normal.length){n.row=state.r++;}
+  else{normal.forEach(function(k){layout(k,depth+1,n.grp,state)});
+    n.row=(normal[0].row+normal[normal.length-1].row)/2;}
+  if(below.length) state.r+=0.3;
+  below.forEach(function(k){layout(k,depth,n.grp,state)});
+  nodes.push(n);
+  all.forEach(function(k){k.parent=n; links.push([n,k]);});
+}
+var ST={r:0};
+layout(TREE,0,null,ST);
+nodes.forEach(function(n){if(n.id)total++;});
+var xs=[0]; for(var i=0;i<COLW.length;i++) xs.push(xs[i]+COLW[i]+GAPX);
+var W=xs[COLW.length]-GAPX, H=ST.r*ROWH-(ROWH-NH)+PAD*2;
+map.style.width=W+"px"; map.style.height=H+"px";
+
+var svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+svg.setAttribute("width",W); svg.setAttribute("height",H); map.appendChild(svg);
+function pos(n){return {x:xs[n.depth],y:PAD+n.row*ROWH,w:COLW[n.depth]}}
+links.forEach(function(l){
+  var a=pos(l[0]), b=pos(l[1]), x1=a.x+a.w, y1=a.y+NH/2, x2=b.x, y2=b.y+NH/2, mx=(x1+x2)/2;
+  var p=document.createElementNS("http://www.w3.org/2000/svg","path");
+  if(l[1].below){var cx=a.x+a.w/2; var ay=a.y+NH+1, by=b.y-1; p.setAttribute("d","M"+cx+" "+ay+" L"+cx+" "+by+" M"+(cx-4)+" "+(by-6)+" L"+cx+" "+by+" L"+(cx+4)+" "+(by-6)); p.style.strokeLinejoin="round"; p.style.strokeLinecap="round";}
+  else p.setAttribute("d","M"+x1+" "+y1+" C"+mx+" "+y1+" "+mx+" "+y2+" "+x2+" "+y2);
+  l[1].path=p; svg.appendChild(p);
+});
+function setCol(el,n){if(n.grp){var c=G[n.grp].c; el.style.setProperty("--col","var(--"+c+")"); el.style.setProperty("--soft","var(--"+c+"s)");}}
+nodes.forEach(function(n){
+  var p=pos(n), el=document.createElement(n.id?"button":"div");
+  el.className="node"+(n.root?" root":n.group?" group":"");
+  el.style.left=p.x+"px"; el.style.top=p.y+"px"; el.style.width=p.w+"px"; el.style.height=NH+"px";
+  setCol(el,n);
+  if(n.id){
+    el.type="button"; el.innerHTML='<span class="dot"></span><span></span>';
+    var s=el.lastChild; s.textContent=n.label;
+    if(n.sub){var sm=document.createElement("small"); sm.textContent=n.sub; s.appendChild(sm);}
+    el.addEventListener("click",function(){openNode(n)});
+    n.el=el;
+  }else{ el.textContent=n.label; if(n.root) el.setAttribute("role","presentation"); }
+  map.appendChild(el);
+});
+/* chip: dipakai bila bingkai terlalu kecil untuk pohon yang terbaca */
+Object.keys(G).forEach(function(g){
+  var box=document.createElement("div"); box.className="cg";
+  var lab=document.createElement("div"); lab.className="cl"; lab.textContent=G[g].n;
+  box.style.setProperty("--col","var(--"+G[g].c+")"); box.style.setProperty("--soft","var(--"+G[g].c+"s)");
+  var wrap=document.createElement("div"); wrap.className="cw"; box.append(lab,wrap); chipsEl.appendChild(box);
+  nodes.filter(function(n){return n.id&&n.grp===g}).sort(function(a,b){return a.depth-b.depth||a.row-b.row}).forEach(function(n){
+    var c=document.createElement("button"); c.type="button"; c.className="chip"+(n.kids?" par":"");
+    c.innerHTML='<span class="dot"></span><span></span>'; c.lastChild.textContent=n.label;
+    c.addEventListener("click",function(){openNode(n)}); n.chip=c; wrap.appendChild(c);
+  });
+});
+
+function color(n){return G[n.grp].c}
+function openNode(n){
+  activeNode=n; seen[n.id]=true;
+  nodes.forEach(function(m){
+    [m.el,m.chip].forEach(function(e){ if(e){e.classList.toggle("active",m===n); e.classList.toggle("seen",!!seen[m.id]);} });
+    if(m.path){m.path.classList.remove("on");m.path.style.stroke="";}
+  });
+  for(var m=n;m&&m.path;m=m.parent){m.path.classList.add("on");m.path.style.stroke="var(--"+color(n)+")";}
+  var k=Object.keys(seen).length;
+  document.getElementById("pt").textContent=k+" dari "+total+" dibuka";
+  document.getElementById("pb").style.width=(k/total*100)+"%";
+  renderPanel(); panel.classList.add("open"); fitText();
+}
+function backBtn(){
+  var b=document.createElement("button"); b.type="button"; b.className="back"; b.textContent="← Peta";
+  b.addEventListener("click",function(){panel.classList.remove("open")}); return b;
+}
+function renderPanel(){
+  pc.innerHTML="";
+  var n=activeNode;
+  if(!n){
+    panel.style.removeProperty("--col"); panel.style.removeProperty("--soft");
+    var t=document.createElement("div"); t.className="tag"; t.textContent="Mulai";
+    var h=document.createElement("h2"); h.textContent="Pilih satu konsep";
+    var p=document.createElement("p"); p.className="hint"; p.textContent="Mulailah dari Regulasi Diri di kolom Pondasi, lalu telusuri Implementasi dan Hubungan untuk Belajar. Titik di dalam kotak terisi setelah konsep dibuka.";
+    pc.append(t,h,p); return;
+  }
+  var c=color(n);
+  panel.style.setProperty("--col","var(--"+c+")"); panel.style.setProperty("--soft","var(--"+c+"s)");
+  var tag=document.createElement("div"); tag.className="tag"; tag.textContent=G[n.grp].n+(n.sub?" · "+n.sub:"");
+  var h2=document.createElement("h2"); h2.textContent=n.label;
+  var p2=document.createElement("p"); p2.textContent=n.t;
+  pc.append(backBtn(),tag,h2,p2);
+  if(n.ex){var e=document.createElement("div"); e.className="ex"; var b=document.createElement("b"); b.textContent="Contoh"; var s=document.createElement("span"); s.textContent=n.ex; e.append(b,s); pc.appendChild(e);}
+}
+/* kecilkan huruf secukupnya sampai seluruh isi muat tanpa scroll */
+function fitIn(el,box,max,min){
+  var f=max; el.style.fontSize=f+"px";
+  while(f>min && el.scrollHeight>box.clientHeight+1){f-=.5; el.style.fontSize=f+"px";}
+}
+function fitText(){
+  if(getComputedStyle(panel).display==="none")return;
+  var base=Math.max(10,Math.min(18,panel.clientWidth/13));
+  fitIn(pc,panel,base,8.5);
+}
+function kT(w,h){return Math.min((w-8)/W,(h-8)/H,1.6)}
+function relayout(){
+  var sw=stage.clientWidth, sh=stage.clientHeight;
+  if(sw>=540 && kT(sw*.6,sh)>=0.9){mode="split";view="tree";}
+  else if(kT(sw,sh)>=MINK){mode="swap";view="tree";}
+  else{mode="swap";view="chips";}
+  stage.className="stage "+mode;
+  if(mode==="split")panel.classList.add("open"); else if(!activeNode)panel.classList.remove("open");
+  var bw=mapbox.clientWidth, bh=mapbox.clientHeight;
+  if(view==="tree"){
+    chipsEl.hidden=true; map.hidden=false;
+    var k=kT(bw,bh);
+    map.style.transform="scale("+k+")";
+    map.style.left=Math.max(0,(bw-W*k)/2)+"px"; map.style.top=Math.max(0,(bh-H*k)/2)+"px";
+  }else{
+    map.hidden=true; chipsEl.hidden=false;
+    fitIn(chipsEl,chipsEl,Math.min(17,bw/18),8.5);
+  }
+  renderPanel(); fitText();
+}
+var raf=0;
+function queue(){cancelAnimationFrame(raf);raf=requestAnimationFrame(relayout)}
+window.addEventListener("resize",queue);
+if(window.ResizeObserver) new ResizeObserver(queue).observe(document.getElementById("app"));
+relayout();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(relayout);
+</script>
+</body></html>
